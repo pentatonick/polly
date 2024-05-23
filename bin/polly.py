@@ -307,6 +307,15 @@ if args.output:
 else:
   cdir = os.getcwd()
 
+home = '.'
+if args.home:
+  home = args.home
+
+# Check the existence of CMakeLists.txt and exit before creating any directories
+cmakelists_path = '{}/CMakeLists.txt'.format(home)
+if not os.path.exists(cmakelists_path):
+  sys.exit('Specified path for CMakeList does not exist: {}'.format(cmakelists_path))
+
 build_dir = os.path.join(cdir, '_builds', build_tag)
 print("Build dir: {}".format(build_dir))
 build_dir_option = "-B{}".format(build_dir)
@@ -372,10 +381,6 @@ else:
   else:
     detail.call.call(['which', cmake_bin], logging)
 detail.call.call([cmake_bin, '--version'], logging)
-
-home = '.'
-if args.home:
-  home = args.home
 
 generate_command = [
     cmake_bin,
