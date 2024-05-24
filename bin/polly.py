@@ -238,6 +238,18 @@ parser.add_argument(
     help="Print the corresponding CMake command and quit"
 )
 
+vcpkg_cmake_relative_path = 'scripts/buildsystems/vcpkg.cmake'
+vcpkg_cmake_pwd = '{}/vcpkg/{}'.format(os.environ['PWD'], vcpkg_cmake_relative_path)
+vcpkg_cmake_env_vcpkg_root = '{}/{}'.format(os.environ['VCPKG_ROOT'], vcpkg_cmake_relative_path)
+vcpkg_cmake_path = vcpkg_cmake_pwd if os.path.exists(vcpkg_cmake_pwd) else vcpkg_cmake_env_vcpkg_root
+
+parser.add_argument(
+    '--vcpkg',
+    nargs='?',
+    const=vcpkg_cmake_path,
+    help='Enables vcpkg using on ${PWD}/vcpkg, if exists, or $VCPKG_ROOT followed by /scripts/buildsystems/vcpkg.cmake or given argument'
+)
+
 args = parser.parse_args()
 
 polly_toolchain = detail.toolchain_name.get(args.toolchain)
@@ -296,7 +308,6 @@ if toolchain_entry.osx_version:
 toolchain_path = os.path.join(polly_root, "{}.cmake".format(polly_toolchain))
 if not os.path.exists(toolchain_path):
   sys.exit("Toolchain file not found: {}".format(toolchain_path))
-toolchain_option = "-DCMAKE_TOOLCHAIN_FILE={}".format(toolchain_path)
 
 if args.output:
   if not os.path.isdir(args.output):
@@ -318,7 +329,6 @@ if not os.path.exists(cmakelists_path):
 
 build_dir = os.path.join(cdir, '_builds', build_tag)
 print("Build dir: {}".format(build_dir))
-build_dir_option = "-B{}".format(build_dir)
 
 install_dir = os.path.join(cdir, '_install', polly_toolchain)
 local_install = args.install or args.strip or args.framework or args.framework_device or args.archive
@@ -385,8 +395,12 @@ detail.call.call([cmake_bin, '--version'], logging)
 generate_command = [
     cmake_bin,
     '-H{}'.format(home),
-    build_dir_option
+    '-B{}'.format(build_dir),
+    '-DCMAKE_TOOLCHAIN_FILE={}'.format(args.vcpkg if args.vcpkg else toolchain_path)
 ]
+
+if args.vcpkg:
+  generate_command.append('-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={}'.format(toolchain_path))
 
 if args.cache:
   if not os.path.isfile(args.cache):
@@ -407,9 +421,6 @@ if toolchain_entry.toolset:
 if toolchain_entry.xp:
   toolset = 'v{}0_xp'.format(toolchain_entry.vs_version)
   generate_command.append('-T{}'.format(toolset))
-
-if toolchain_option:
-  generate_command.append(toolchain_option)
 
 if args.verbosity == 'full':
     generate_command.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
